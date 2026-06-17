@@ -1,0 +1,998 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Valpo Exorcista</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#1a1226;
+    --cream:#f3e9d8;
+    --gb-bg:#0d0a16;
+    --maldito:#8b5cf6;
+    --maldito2:#22d3ee;
+    --mar:#2a6f97;
+    --hp:#5ad17a;
+    --hp-low:#e0506a;
+    --em:#42c0e8;
+    --dom:#c084fc;
+    --panel:#1f1733;
+    --panel2:#2c2147;
+    --border:#5b4b86;
+    --gold:#ffcf57;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  html,body{margin:0;height:100%;background:var(--gb-bg);overflow:hidden;
+    font-family:'Press Start 2P', ui-monospace, monospace; color:var(--cream);}
+  #app{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;}
+  #stage{position:relative;width:100%;height:100%;max-width:920px;max-height:760px;
+    background:linear-gradient(180deg,#1a1530 0%,#0d0a16 100%);overflow:hidden;}
+  canvas{display:block;width:100%;height:100%;image-rendering:pixelated;image-rendering:crisp-edges;}
+
+  /* ---------- HUD ---------- */
+  #hud{position:absolute;top:0;left:0;right:0;display:flex;justify-content:space-between;
+    align-items:flex-start;padding:8px;pointer-events:none;gap:8px;z-index:5;}
+  .tag{background:rgba(20,15,38,.82);border:2px solid var(--border);border-radius:6px;
+    padding:6px 8px;font-size:8px;line-height:1.5;letter-spacing:.5px;}
+  .tag b{color:var(--gold);}
+  #grade{color:var(--maldito2);}
+  .barwrap{margin-top:4px;width:120px;height:9px;background:#0c0916;border:2px solid var(--border);border-radius:3px;overflow:hidden;}
+  .bar{height:100%;width:100%;transition:width .25s;}
+  #hpbarHud{background:var(--hp);}
+  #embarHud{background:var(--em);}
+
+  /* ---------- Dialogo / texto ---------- */
+  #dialog{position:absolute;left:12px;right:12px;bottom:12px;min-height:78px;
+    background:rgba(18,13,34,.94);border:3px solid var(--border);border-radius:8px;
+    padding:12px 14px;font-size:10px;line-height:1.8;z-index:6;display:none;
+    box-shadow:0 6px 0 rgba(0,0,0,.4);}
+  #dialog .next{position:absolute;right:10px;bottom:6px;font-size:9px;color:var(--gold);animation:blink 1s steps(2) infinite;}
+  @keyframes blink{50%{opacity:0;}}
+
+  /* ---------- Controles tactiles ---------- */
+  #touch{position:absolute;bottom:14px;left:14px;z-index:7;display:none;}
+  .dpad{position:relative;width:132px;height:132px;}
+  .dbtn{position:absolute;width:44px;height:44px;background:rgba(40,30,66,.85);
+    border:2px solid var(--border);border-radius:8px;color:var(--cream);font-size:14px;
+    display:flex;align-items:center;justify-content:center;user-select:none;}
+  .dbtn:active{background:var(--maldito);}
+  #du{top:0;left:44px;} #dd{bottom:0;left:44px;} #dl{top:44px;left:0;} #dr{top:44px;right:0;}
+  #aBtn{position:absolute;bottom:14px;right:14px;width:62px;height:62px;border-radius:50%;
+    background:var(--maldito);border:3px solid var(--border);color:#fff;font-size:9px;
+    display:none;align-items:center;justify-content:center;z-index:7;user-select:none;}
+  #aBtn:active{transform:scale(.92);}
+
+  /* ---------- Batalla ---------- */
+  #battle{position:absolute;inset:0;z-index:8;display:none;flex-direction:column;
+    background:radial-gradient(120% 90% at 50% 0%, #2a1f47 0%, #120c22 70%);}
+  #bScene{position:relative;flex:1;overflow:hidden;}
+  #bEnemy{position:absolute;top:8%;right:8%;text-align:center;}
+  #bPlayer{position:absolute;bottom:6%;left:8%;text-align:center;}
+  .sprite{image-rendering:pixelated;filter:drop-shadow(0 6px 6px rgba(0,0,0,.45));}
+  .nameplate{background:rgba(18,13,34,.92);border:2px solid var(--border);border-radius:6px;
+    padding:6px 8px;font-size:8px;display:inline-block;min-width:150px;text-align:left;}
+  .nameplate .row{display:flex;justify-content:space-between;margin-bottom:3px;}
+  .minihp{width:100%;height:8px;background:#0c0916;border:1px solid #000;border-radius:2px;overflow:hidden;margin-top:2px;}
+  .minihp > i{display:block;height:100%;background:var(--hp);transition:width .3s;}
+  #bEnemy .nameplate{margin-bottom:8px;}
+  #bPlayer .nameplate{margin-top:8px;}
+  #domwrap{margin-top:3px;}
+  #domwrap .minihp > i{background:var(--dom);}
+  #emwrap .minihp > i{background:var(--em);}
+
+  #bBox{height:150px;border-top:3px solid var(--border);background:rgba(14,10,24,.96);
+    display:flex;padding:10px;gap:10px;}
+  #bText{flex:1;font-size:10px;line-height:1.75;padding:6px;overflow:hidden;}
+  #bMenu{width:230px;display:grid;grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr;gap:8px;}
+  .mbtn{background:var(--panel2);border:2px solid var(--border);border-radius:6px;color:var(--cream);
+    font-family:inherit;font-size:9px;cursor:pointer;display:flex;align-items:center;justify-content:center;
+    padding:4px;text-align:center;line-height:1.3;}
+  .mbtn:hover{background:var(--maldito);} .mbtn:disabled{opacity:.4;cursor:not-allowed;}
+  .mbtn.sel{outline:2px solid var(--gold);}
+  #techMenu{display:none;width:100%;grid-template-columns:1fr 1fr;grid-template-rows:auto;gap:6px;}
+  #techMenu .mbtn{font-size:8px;min-height:34px;justify-content:flex-start;text-align:left;padding:5px 7px;}
+
+  /* ---------- Pantallas ---------- */
+  .screen{position:absolute;inset:0;z-index:20;display:flex;flex-direction:column;
+    align-items:center;justify-content:center;text-align:center;padding:24px;gap:16px;
+    background:radial-gradient(120% 100% at 50% 30%, #241a40 0%, #0b0816 75%);}
+  .screen h1{font-size:22px;color:var(--gold);margin:0;line-height:1.4;text-shadow:3px 3px 0 #5b1c6e;}
+  .screen h1 small{display:block;font-size:9px;color:var(--maldito2);margin-top:8px;letter-spacing:2px;}
+  .screen p{font-size:9px;line-height:2;max-width:520px;color:var(--cream);}
+  .btn{font-family:inherit;font-size:11px;color:#fff;background:var(--maldito);
+    border:3px solid #fff3;border-radius:8px;padding:14px 22px;cursor:pointer;
+    box-shadow:0 5px 0 #4c2a7a;transition:transform .08s;}
+  .btn:active{transform:translateY(4px);box-shadow:0 1px 0 #4c2a7a;}
+  .legend{display:flex;gap:14px;flex-wrap:wrap;justify-content:center;font-size:7px;margin-top:6px;}
+  .legend span{display:flex;align-items:center;gap:5px;}
+  .sw{width:12px;height:12px;border:1px solid #0006;border-radius:2px;display:inline-block;}
+  #muteBtn{position:absolute;top:8px;right:8px;z-index:9;background:rgba(20,15,38,.8);
+    border:2px solid var(--border);border-radius:6px;color:var(--cream);font-family:inherit;
+    font-size:8px;padding:6px 8px;cursor:pointer;}
+  .flash{position:absolute;inset:0;background:#fff;z-index:30;pointer-events:none;opacity:0;}
+  .hint{font-size:7px;color:#9a8fc0;letter-spacing:1px;}
+  #toast{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);z-index:15;
+    background:rgba(18,13,34,.95);border:3px solid var(--gold);border-radius:10px;padding:18px 24px;
+    font-size:11px;color:var(--gold);display:none;text-align:center;line-height:1.7;box-shadow:0 0 30px #c084fc88;}
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="stage">
+    <canvas id="game"></canvas>
+
+    <div id="hud">
+      <div class="tag">
+        <div><b id="pname">Hechicer@</b></div>
+        <div>Nv <b id="lvl">1</b> · <span id="grade">Grado 4</span></div>
+        <div class="barwrap"><div id="hpbarHud" class="bar"></div></div>
+        <div class="barwrap"><div id="embarHud" class="bar"></div></div>
+      </div>
+      <div class="tag" style="text-align:right">
+        <div>Exorcizados</div>
+        <div><b id="exorCount">0</b></div>
+        <div style="margin-top:4px">EM <b id="emTxt">20/20</b></div>
+      </div>
+    </div>
+
+    <button id="muteBtn">🔊 Audio</button>
+
+    <div id="dialog"><span id="dialogText"></span><span class="next">▼</span></div>
+
+    <!-- Controles tactiles -->
+    <div id="touch"><div class="dpad">
+      <div class="dbtn" id="du">▲</div>
+      <div class="dbtn" id="dd">▼</div>
+      <div class="dbtn" id="dl">◀</div>
+      <div class="dbtn" id="dr">▶</div>
+    </div></div>
+    <div id="aBtn">A</div>
+
+    <!-- Batalla -->
+    <div id="battle">
+      <div id="bScene">
+        <div id="bEnemy">
+          <div class="nameplate">
+            <div class="row"><span id="eName">Espíritu</span><span id="eLvl">Nv 1</span></div>
+            <div class="minihp"><i id="eHp"></i></div>
+          </div>
+          <canvas id="eSprite" class="sprite" width="160" height="160"></canvas>
+        </div>
+        <div id="bPlayer">
+          <canvas id="pSprite" class="sprite" width="120" height="120"></canvas>
+          <div class="nameplate">
+            <div class="row"><span>Tú</span><span id="pLvlB">Nv 1</span></div>
+            <div class="minihp"><i id="pHp"></i></div>
+            <div id="emwrap" class="minihp"><i id="pEm"></i></div>
+            <div id="domwrap" class="minihp"><i id="pDom"></i></div>
+            <div class="hint" style="margin-top:4px">HP · EM · Dominio</div>
+          </div>
+        </div>
+      </div>
+      <div id="bBox">
+        <div id="bText">Un espíritu maldito bloquea el camino...</div>
+        <div id="bMenu">
+          <button class="mbtn" data-act="atacar">Atacar</button>
+          <button class="mbtn" data-act="tecnica">Técnica</button>
+          <button class="mbtn" data-act="exorcizar">Exorcizar</button>
+          <button class="mbtn" data-act="huir">Huir</button>
+        </div>
+        <div id="techMenu"></div>
+      </div>
+    </div>
+
+    <div id="toast"></div>
+    <div class="flash" id="flash"></div>
+
+    <!-- Intro -->
+    <div class="screen" id="introScreen">
+      <h1>VALPO EXORCISTA<small>★ crónicas de energía maldita ★</small></h1>
+      <p>Valparaíso amaneció cubierto de niebla maldita. Espíritus brotan entre los cerros,
+         las escaleras y el puerto. Eres hechicer@ del Grado 4 y debes recorrer la ciudad
+         exorcizando maldiciones para subir de grado.</p>
+      <div class="legend">
+        <span><i class="sw" style="background:#22d3ee"></i> Mar</span>
+        <span><i class="sw" style="background:#caa86a"></i> Calle</span>
+        <span><i class="sw" style="background:#e06d5a"></i> Casa</span>
+        <span><i class="sw" style="background:#8b5cf6"></i> Zona maldita</span>
+        <span><i class="sw" style="background:#9ad17a"></i> Plaza</span>
+      </div>
+      <button class="btn" id="startBtn">Comenzar</button>
+      <div class="hint">Teclado: flechas/WASD para moverte · Móvil: usa la cruceta</div>
+    </div>
+
+    <!-- Game over / respawn -->
+    <div class="screen" id="downScreen" style="display:none">
+      <h1 style="color:#e0506a">CAÍSTE<small>tu energía maldita se agotó</small></h1>
+      <p id="downText">Un transeúnte te arrastró hasta la Plaza Sotomayor. Recuperas el aliento...</p>
+      <button class="btn" id="reviveBtn">Seguir</button>
+    </div>
+  </div>
+</div>
+
+<script>
+"use strict";
+/* =========================================================================
+   VALPO EXORCISTA — juego isométrico estilo RPG / exorcismo
+   Todo en memoria, un solo archivo. Sin dependencias externas obligatorias.
+   ========================================================================= */
+
+// ----------------------------- Utilidades --------------------------------
+const $ = id => document.getElementById(id);
+const clamp = (v,a,b)=>Math.max(a,Math.min(b,v));
+const rnd = n => Math.floor(Math.random()*n);
+const chance = p => Math.random() < p;
+function lerp(a,b,t){return a+(b-a)*t;}
+function shade(hex, amt){ // aclara/oscurece un color hex (amt -1..1)
+  const n = parseInt(hex.slice(1),16);
+  let r=(n>>16)&255, g=(n>>8)&255, b=n&255;
+  const f = amt<0 ? (c)=>c*(1+amt) : (c)=>c+(255-c)*amt;
+  r=clamp(Math.round(f(r)),0,255); g=clamp(Math.round(f(g)),0,255); b=clamp(Math.round(f(b)),0,255);
+  return '#'+((1<<24)+(r<<16)+(g<<8)+b).toString(16).slice(1);
+}
+
+// ----------------------------- Audio -------------------------------------
+const Audio8 = (()=>{
+  let ctx=null, muted=false;
+  function ensure(){ if(!ctx){ try{ ctx=new (window.AudioContext||window.webkitAudioContext)(); }catch(e){} } if(ctx&&ctx.state==='suspended') ctx.resume(); }
+  function beep(freq,dur,type='square',vol=0.08){
+    if(muted) return; ensure(); if(!ctx) return;
+    const o=ctx.createOscillator(), g=ctx.createGain();
+    o.type=type; o.frequency.value=freq; o.connect(g); g.connect(ctx.destination);
+    const t=ctx.currentTime; g.gain.setValueAtTime(vol,t);
+    g.gain.exponentialRampToValueAtTime(0.0001,t+dur);
+    o.start(t); o.stop(t+dur);
+  }
+  function seq(notes){ let t=0; notes.forEach(n=>{ setTimeout(()=>beep(n[0],n[1],n[2]||'square',n[3]||0.08), t); t+=n[4]||90; }); }
+  return {
+    ensure, toggle(){muted=!muted; return muted;},
+    isMuted(){return muted;},
+    step(){ beep(180+rnd(40),0.05,'square',0.04); },
+    encounter(){ seq([[440,0.08],[330,0.08],[523,0.18],[660,0.25]]); },
+    hit(){ beep(140,0.09,'sawtooth',0.09); },
+    crit(){ seq([[180,0.05],[120,0.12,'sawtooth',0.1]]); },
+    tech(){ seq([[523,0.06],[659,0.06],[784,0.12]]); },
+    heal(){ seq([[523,0.07],[659,0.07],[880,0.14,'sine',0.07]]); },
+    exorcise(){ seq([[523,0.07],[659,0.07],[784,0.07],[1046,0.3,'triangle',0.08]]); },
+    domain(){ seq([[130,0.15,'sawtooth',0.1],[110,0.15,'sawtooth',0.1],[98,0.3,'sawtooth',0.12],[261,0.4,'square',0.09]],100); },
+    levelup(){ seq([[523,0.09],[659,0.09],[784,0.09],[1046,0.25]]); },
+    down(){ seq([[330,0.12],[262,0.12],[196,0.3,'sawtooth',0.1]]); },
+  };
+})();
+
+// ----------------------------- Mapa --------------------------------------
+// Tipos de tile
+const T = { MAR:0, CALLE:1, CASA:2, ESCALERA:3, PLAZA:4, MALDITA:5, ASCENSOR:6, MURAL:7, ARBOL:8, MUELLE:9, ROCA:10 };
+const WALK = { [T.CALLE]:1,[T.ESCALERA]:1,[T.PLAZA]:1,[T.MALDITA]:1,[T.MUELLE]:1 };
+
+const MAP_W=26, MAP_H=26;
+let grid=[];        // tipo por celda
+let elev=[];        // elevación (cerros)
+let houseHue=[];    // color casa
+let decoSeed=[];    // ruido decorativo
+
+function buildMap(){
+  grid=[]; elev=[]; houseHue=[]; decoSeed=[];
+  for(let y=0;y<MAP_H;y++){
+    grid[y]=[]; elev[y]=[]; houseHue[y]=[]; decoSeed[y]=[];
+    for(let x=0;x<MAP_W;x++){
+      decoSeed[y][x]=Math.random();
+      // El mar ocupa la franja "baja" (la bahía) hacia y alto + esquina
+      let e=0, t=T.CALLE;
+      const bahia = (y > MAP_H-5) || (x<3 && y>MAP_H-9);
+      if(bahia){ t=T.MAR; e=0; }
+      else {
+        // Elevación: sube hacia arriba (y bajo) => cerros
+        const hill = (MAP_H-6 - y);
+        e = clamp(Math.floor(hill/3),0,5);
+        // Muelle junto al mar
+        if(y===MAP_H-5 && x>=4){ t=T.MUELLE; e=0; }
+        else {
+          // Cuadrícula de calles: cada 4 celdas hay calle, resto manzanas con casas
+          const calleX = (x%4===0), calleY=(y%4===0);
+          if(calleX||calleY){ t = (calleX&&calleY)?T.PLAZA:T.CALLE; }
+          else { t=T.CASA; houseHue[y][x]=rnd(8); }
+        }
+      }
+      grid[y][x]=t; elev[y][x]=e;
+    }
+  }
+  // Escaleras icónicas: convertir algunas calles verticales en escaleras donde hay desnivel
+  for(let y=1;y<MAP_H-1;y++) for(let x=0;x<MAP_W;x++){
+    if(grid[y][x]===T.CALLE && x%8===0 && elev[y-1] && elev[y-1][x]>elev[y][x]) grid[y][x]=T.ESCALERA;
+  }
+  // Plaza Sotomayor (spawn) cerca del mar/plan
+  const sx=12, sy=MAP_H-7;
+  for(let dy=-1;dy<=1;dy++)for(let dx=-1;dx<=1;dx++){ if(inB(sx+dx,sy+dy)){grid[sy+dy][sx+dx]=T.PLAZA; elev[sy+dy][sx+dx]=0;} }
+  // Ascensor en un cerro
+  placeIf(7,7,T.ASCENSOR); placeIf(18,9,T.ASCENSOR);
+  // Murales en algunas casas
+  for(let i=0;i<10;i++){ const mx=2+rnd(MAP_W-4), my=2+rnd(MAP_H-9); if(grid[my][mx]===T.CASA && chance(.5)) grid[my][mx]=T.MURAL; }
+  // Arboles en plazas
+  for(let i=0;i<14;i++){ const mx=1+rnd(MAP_W-2), my=1+rnd(MAP_H-7); if(grid[my][mx]===T.PLAZA && chance(.4)) grid[my][mx]=T.ARBOL; }
+  // Zonas malditas (pasto alto): en calles/plazas alejadas del spawn
+  let placed=0;
+  for(let tries=0; tries<700 && placed<46; tries++){
+    const mx=1+rnd(MAP_W-2), my=1+rnd(MAP_H-7);
+    const g=grid[my][mx];
+    const distSpawn=Math.abs(mx-sx)+Math.abs(my-sy);
+    if((g===T.CALLE||g===T.PLAZA||g===T.ESCALERA) && distSpawn>3){
+      // agrupar en parches
+      grid[my][mx]=T.MALDITA; placed++;
+      for(const [ddx,ddy] of [[1,0],[0,1],[1,1]]){
+        if(inB(mx+ddx,my+ddy) && (grid[my+ddy][mx+ddx]===T.CALLE||grid[my+ddy][mx+ddx]===T.PLAZA) && chance(.5)){
+          grid[my+ddy][mx+ddx]=T.MALDITA; placed++;
+        }
+      }
+    }
+  }
+  return {sx,sy};
+}
+function inB(x,y){return x>=0&&y>=0&&x<MAP_W&&y<MAP_H;}
+function placeIf(x,y,t){ if(inB(x,y)){grid[y][x]=t; elev[y][x]=Math.max(elev[y][x],1);} }
+function isWalkable(x,y){ if(!inB(x,y)) return false; return !!WALK[grid[y][x]]; }
+
+// Paleta casas Valpo
+const HOUSE_COLORS = ['#e06d5a','#46b3a3','#e8b84b','#5aa9e6','#d362a4','#8ed16b','#ee8b3f','#7b6bd8'];
+
+// ----------------------------- Render iso --------------------------------
+const cv=$('game'), cx2=cv.getContext('2d');
+let TW=64, TH=32, EH=18;          // tamaño de tile e incremento de elevación
+let camX=0, camY=0, DPR=1, VW=0, VH=0;
+
+function resize(){
+  const stage=$('stage'); const r=stage.getBoundingClientRect();
+  DPR=Math.min(window.devicePixelRatio||1, 2);
+  VW=r.width; VH=r.height;
+  cv.width=VW*DPR; cv.height=VH*DPR; cv.style.width=VW+'px'; cv.style.height=VH+'px';
+  cx2.setTransform(DPR,0,0,DPR,0,0);
+  cx2.imageSmoothingEnabled=false;
+  // En pantallas chicas, achicar tiles
+  const scale = VW<560 ? 0.78 : 1;
+  TW=64*scale; TH=32*scale; EH=18*scale;
+}
+window.addEventListener('resize', resize);
+
+function isoPos(gx,gy,e){
+  const ix=(gx-gy)*(TW/2);
+  const iy=(gx+gy)*(TH/2) - (e||0)*EH;
+  return {x: ix - camX + VW/2, y: iy - camY + VH*0.42};
+}
+
+function drawDiamond(cx,cy,w,h,fill,stroke){
+  cx2.beginPath();
+  cx2.moveTo(cx, cy-h/2);
+  cx2.lineTo(cx+w/2, cy);
+  cx2.lineTo(cx, cy+h/2);
+  cx2.lineTo(cx-w/2, cy);
+  cx2.closePath();
+  if(fill){cx2.fillStyle=fill; cx2.fill();}
+  if(stroke){cx2.strokeStyle=stroke; cx2.lineWidth=1; cx2.stroke();}
+}
+// bloque iso con caras laterales de altura h
+function drawBlock(cx,cy,h,topC,leftC,rightC){
+  // cara izquierda
+  cx2.beginPath();
+  cx2.moveTo(cx-TW/2, cy); cx2.lineTo(cx, cy+TH/2);
+  cx2.lineTo(cx, cy+TH/2+h); cx2.lineTo(cx-TW/2, cy+h); cx2.closePath();
+  cx2.fillStyle=leftC; cx2.fill();
+  // cara derecha
+  cx2.beginPath();
+  cx2.moveTo(cx+TW/2, cy); cx2.lineTo(cx, cy+TH/2);
+  cx2.lineTo(cx, cy+TH/2+h); cx2.lineTo(cx+TW/2, cy+h); cx2.closePath();
+  cx2.fillStyle=rightC; cx2.fill();
+  // cara superior
+  drawDiamond(cx,cy,TW,TH,topC,'rgba(0,0,0,.18)');
+}
+
+let frame=0;
+function drawTile(gx,gy){
+  const t=grid[gy][gx], e=elev[gy][gx];
+  const p=isoPos(gx,gy,e);
+  const cx=p.x, cy=p.y;
+  // culling
+  if(cx<-TW||cx>VW+TW||cy<-200||cy>VH+200) return;
+  const drop=e*EH+6;
+
+  if(t===T.MAR){
+    const shimmer=Math.sin((gx+gy)*0.6 + frame*0.05)*0.06;
+    const c=shade('#2a6f97', shimmer);
+    drawBlock(cx,cy,6,c,shade(c,-0.3),shade(c,-0.18));
+    // brillo de ola
+    if(decoSeed[gy][gx]>0.7){ cx2.fillStyle='rgba(220,240,255,.35)';
+      cx2.fillRect(cx-3, cy-1, 6,2); }
+    return;
+  }
+  if(t===T.MUELLE){
+    drawBlock(cx,cy,6,'#9c7b56',shade('#9c7b56',-0.35),shade('#9c7b56',-0.2));
+    cx2.strokeStyle='rgba(0,0,0,.25)'; cx2.lineWidth=1;
+    cx2.beginPath(); cx2.moveTo(cx-TW/2,cy); cx2.lineTo(cx+TW/2,cy); cx2.stroke();
+    return;
+  }
+
+  // base de suelo (calle/plaza/escalera/maldita)
+  let base='#caa86a';
+  if(t===T.PLAZA) base='#9ad17a';
+  if(t===T.ESCALERA) base='#b7a07f';
+  if(t===T.MALDITA) base='#3a2a55';
+  if(t===T.ARBOL) base='#7fbf5f';
+  drawBlock(cx,cy,drop, base, shade(base,-0.34), shade(base,-0.2));
+
+  if(t===T.ESCALERA){ // líneas de peldaños
+    cx2.strokeStyle='rgba(0,0,0,.28)'; cx2.lineWidth=1;
+    for(let i=-1;i<=1;i++){ cx2.beginPath(); cx2.moveTo(cx-TW/4, cy+i*5); cx2.lineTo(cx+TW/4, cy+i*5+TH/4); cx2.stroke(); }
+  }
+  if(t===T.CALLE){ cx2.strokeStyle='rgba(0,0,0,.10)'; cx2.lineWidth=1; drawDiamond(cx,cy,TW*0.6,TH*0.6,null,'rgba(0,0,0,.12)'); }
+
+  if(t===T.MALDITA){ // wisps de energía maldita
+    drawDiamond(cx,cy,TW*0.9,TH*0.9,null,'rgba(139,92,246,.5)');
+    const ph=frame*0.06 + (gx*1.7+gy*2.3);
+    for(let i=0;i<3;i++){
+      const a=ph+i*2.1;
+      const wx=cx+Math.cos(a)*10, wy=cy-6+Math.sin(a*1.3)*6 - ((frame*0.5+i*7)%16);
+      cx2.fillStyle = i%2? 'rgba(34,211,238,.85)':'rgba(192,132,252,.9)';
+      cx2.beginPath(); cx2.arc(wx,wy,2.2,0,7); cx2.fill();
+    }
+  }
+  if(t===T.ARBOL){
+    cx2.fillStyle='#6b4a2c'; cx2.fillRect(cx-2, cy-10, 4, 12);
+    cx2.fillStyle='#3f8b46'; cx2.beginPath(); cx2.arc(cx,cy-16,11,0,7); cx2.fill();
+    cx2.fillStyle='#4fa85a'; cx2.beginPath(); cx2.arc(cx-4,cy-13,6,0,7); cx2.arc(cx+5,cy-15,6,0,7); cx2.fill();
+  }
+  if(t===T.ASCENSOR){
+    // base + cabina del ascensor (funicular)
+    drawBlock(cx, cy-28, 28, '#c0392b', '#8e2b22','#a3322a');
+    cx2.fillStyle='#ffd86b'; cx2.fillRect(cx-7, cy-44, 14, 12);
+    cx2.fillStyle='#3a2a1a'; cx2.fillRect(cx-5, cy-42, 4,7); cx2.fillRect(cx+1, cy-42,4,7);
+    cx2.fillStyle='#5b3a2a'; cx2.fillRect(cx-9, cy-50, 18, 6); // techo
+  }
+
+  if(t===T.CASA || t===T.MURAL){
+    const hue = (houseHue[gy][gx]!=null? houseHue[gy][gx] : ((gx*7+gy*13)%8));
+    const col = HOUSE_COLORS[hue];
+    const hH = 30 + (decoSeed[gy][gx]*10|0);
+    // cuerpo de la casa
+    drawBlock(cx, cy-hH, hH, shade(col,0.05), shade(col,-0.32), shade(col,-0.16));
+    // techo
+    drawDiamond(cx, cy-hH-2, TW*0.96, TH*0.96, shade(col,-0.45), 'rgba(0,0,0,.25)');
+    // ventanas en cara derecha
+    cx2.fillStyle='rgba(20,25,45,.85)';
+    cx2.fillRect(cx+10, cy-hH+8, 8,8); cx2.fillRect(cx+10, cy-hH+20, 8,8);
+    // puerta cara izquierda
+    cx2.fillStyle='rgba(30,20,10,.9)'; cx2.fillRect(cx-18, cy-hH+14, 7,14);
+    if(t===T.MURAL){ // mancha de mural colorido
+      cx2.fillStyle='rgba(255,255,255,.0)';
+      const mc=['#ff4d6d','#3a86ff','#ffd166','#06d6a0'];
+      for(let i=0;i<4;i++){ cx2.fillStyle=mc[i]; cx2.fillRect(cx-16+i*7, cy-hH+6, 5, 18); }
+    }
+  }
+}
+
+// ----------------------------- Jugador -----------------------------------
+const player = {
+  gx:12, gy:MAP_H-7, px:12, py:MAP_H-7,   // posición lógica y visual
+  dir:'down', moving:false, mt:0, fromX:0, fromY:0, toX:0, toY:0,
+  // stats
+  lvl:1, xp:0, xpNext:10,
+  hp:34, maxHp:34, em:20, maxEm:20, atk:9, def:4,
+  exor:0, domainUnlocked:false
+};
+const GRADES=[ [1,'Grado 4'],[3,'Grado 3'],[5,'Grado 2'],[8,'Grado 1'],[12,'Semi 1ª'],[16,'Grado Especial'] ];
+function gradeFor(lvl){ let g='Grado 4'; for(const [l,name] of GRADES){ if(lvl>=l) g=name; } return g; }
+
+function drawPlayer(){
+  const p=isoPos(player.px,player.py, elevAt(player.px,player.py));
+  const cx=p.x, cy=p.y;
+  // sombra
+  cx2.fillStyle='rgba(0,0,0,.3)';
+  cx2.beginPath(); cx2.ellipse(cx, cy+4, 12, 6, 0,0,7); cx2.fill();
+  const bob = player.moving ? Math.sin(frame*0.4)*2 : 0;
+  const by = cy - 22 + bob;
+  // uniforme oscuro (estilo hechicero)
+  cx2.fillStyle='#241a33'; cx2.fillRect(cx-7, by+10, 14, 16);
+  cx2.fillStyle='#3a2c52'; cx2.fillRect(cx-7, by+10, 14, 4);
+  // brazos
+  cx2.fillStyle='#1c1428'; cx2.fillRect(cx-9, by+12, 3,10); cx2.fillRect(cx+6, by+12, 3,10);
+  // cabeza
+  cx2.fillStyle='#e8b894'; cx2.fillRect(cx-5, by, 10,11);
+  // pelo
+  cx2.fillStyle='#15101f'; cx2.fillRect(cx-6, by-2, 12,6); cx2.fillRect(cx-6, by, 3,7); cx2.fillRect(cx+3, by, 3,7);
+  // ojos según dirección
+  cx2.fillStyle='#1a1226';
+  if(player.dir!=='up'){ cx2.fillRect(cx-3, by+5, 2,2); cx2.fillRect(cx+2, by+5, 2,2); }
+  // aura maldita si tiene dominio listo
+  if(player.domainUnlocked){
+    cx2.strokeStyle=`rgba(192,132,252,${0.4+Math.sin(frame*0.2)*0.2})`;
+    cx2.lineWidth=2; cx2.beginPath(); cx2.arc(cx,by+14,18,0,7); cx2.stroke();
+  }
+}
+function elevAt(fx,fy){
+  const gx=Math.round(fx), gy=Math.round(fy);
+  return inB(gx,gy)? elev[gy][gx] : 0;
+}
+
+// ----------------------------- Bucle render ------------------------------
+function render(){
+  frame++;
+  cx2.clearRect(0,0,VW,VH);
+  // fondo cielo / mar lejano
+  const grd=cx2.createLinearGradient(0,0,0,VH);
+  grd.addColorStop(0,'#1a1530'); grd.addColorStop(1,'#0d0a16');
+  cx2.fillStyle=grd; cx2.fillRect(0,0,VW,VH);
+
+  // cámara sigue al jugador
+  const tp=isoPos(player.px,player.py,0);
+  camX += ((tp.x - VW/2 + camX) - camX)*0; // placeholder
+  const ix=(player.px-player.py)*(TW/2);
+  const iy=(player.px+player.py)*(TH/2);
+  camX = lerp(camX, ix, 0.18);
+  camY = lerp(camY, iy, 0.18);
+
+  // orden de pintado por profundidad (gx+gy). Insertamos al jugador en su capa.
+  const pDepth = player.px+player.py;
+  for(let s=0; s<=MAP_W+MAP_H-2; s++){
+    for(let gx=0; gx<MAP_W; gx++){
+      const gy=s-gx;
+      if(gy<0||gy>=MAP_H) continue;
+      drawTile(gx,gy);
+    }
+    if(Math.floor(pDepth)===s){ drawPlayer(); }
+  }
+  if(pDepth > MAP_W+MAP_H-2) drawPlayer();
+
+  requestAnimationFrame(render);
+}
+
+// ----------------------------- Movimiento --------------------------------
+let GAME='intro'; // intro | over | battle | down
+const MOVE_MS=160;
+function tryMove(dx,dy,dir){
+  if(GAME!=='over' || player.moving || dialog.active) return;
+  player.dir=dir;
+  const nx=player.gx+dx, ny=player.gy+dy;
+  if(!isWalkable(nx,ny)) { player.dir=dir; return; }
+  player.fromX=player.gx; player.fromY=player.gy;
+  player.toX=nx; player.toY=ny;
+  player.gx=nx; player.gy=ny;
+  player.moving=true; player.mt=0;
+  Audio8.step();
+}
+function updateMove(dt){
+  if(!player.moving) return;
+  player.mt += dt;
+  const t=clamp(player.mt/MOVE_MS,0,1);
+  player.px=lerp(player.fromX,player.toX,t);
+  player.py=lerp(player.fromY,player.toY,t);
+  if(t>=1){
+    player.moving=false;
+    player.px=player.toX; player.py=player.toY;
+    onStep();
+  }
+}
+function onStep(){
+  // encuentro en zona maldita
+  if(grid[player.gy][player.gx]===T.MALDITA && chance(0.28)){
+    startBattle();
+  }
+}
+
+// ----------------------------- Diálogo -----------------------------------
+const dialog={active:false, queue:[], cb:null};
+function say(lines, cb){
+  dialog.queue = Array.isArray(lines)? lines.slice() : [lines];
+  dialog.cb=cb||null; dialog.active=true;
+  $('dialog').style.display='block';
+  nextLine();
+}
+function nextLine(){
+  if(dialog.queue.length===0){ $('dialog').style.display='none'; dialog.active=false; const c=dialog.cb; dialog.cb=null; if(c)c(); return; }
+  $('dialogText').textContent = dialog.queue.shift();
+}
+function advanceDialog(){ if(dialog.active) nextLine(); }
+
+// ----------------------------- Espíritus ---------------------------------
+const SPIRITS=[
+  {key:'quiltro', name:'Quiltro Maldito', col:'#6b5a44', shape:'dog',
+    desc:'Un perro callejero envuelto en energía maldita.', baseHp:22, atk:7, xp:8},
+  {key:'neblina', name:'Neblina del Cerro', col:'#8ea0b8', shape:'blob',
+    desc:'Bruma espesa que se traga las escaleras.', baseHp:26, atk:8, xp:10},
+  {key:'muelle', name:'Maldición del Muelle', col:'#2e7d7d', shape:'tentacle',
+    desc:'Algo viscoso trepó desde el puerto.', baseHp:30, atk:9, xp:12},
+  {key:'grafiti', name:'Espíritu del Grafiti', col:'#d94f8a', shape:'blob',
+    desc:'Pintura viva que escupe colores ácidos.', baseHp:24, atk:10, xp:11},
+  {key:'gato', name:'Gato del Tejado', col:'#3a3a4a', shape:'cat',
+    desc:'Vigila los techos con ojos de brasa.', baseHp:20, atk:11, xp:10},
+  {key:'ascensor', name:'Sombra del Ascensor', col:'#7a3b2e', shape:'tall',
+    desc:'Crujido de cables y madera podrida.', baseHp:34, atk:10, xp:14},
+];
+const BOSS={key:'rey', name:'Rey Espectral del Puerto', col:'#5b1c6e', shape:'boss',
+    desc:'La maldición madre de Valparaíso.', baseHp:80, atk:15, xp:60};
+
+// Técnicas del jugador
+const TECHS=[
+  {key:'puno', name:'Puño Reforzado', cost:4, dmg:1.5, type:'dmg', txt:'Concentras energía en el puño.'},
+  {key:'filo', name:'Filo Cortante', cost:6, dmg:1.9, type:'dmg', txt:'Una cuchilla de energía maldita.'},
+  {key:'reversa',name:'Técnica Reversa', cost:8, heal:0.5, type:'heal', txt:'Inviertes la energía para sanar.'},
+  {key:'dominio',name:'Expansión de Dominio', cost:0, dmg:4.0, type:'domain', txt:'¡EXPANSIÓN DE DOMINIO!'},
+];
+
+// ----------------------------- Combate -----------------------------------
+const B={ enemy:null, eHp:0, eMax:0, eLvl:1, busy:false, domain:0, domainMax:100, fled:false };
+
+function pickSpirit(){
+  // nivel de encuentro alrededor del nivel del jugador
+  const lvl=clamp(player.lvl + rnd(3)-1, 1, 30);
+  // boss raro a niveles altos cerca del muelle
+  const sp = (player.lvl>=6 && chance(0.05)) ? BOSS : SPIRITS[rnd(SPIRITS.length)];
+  const max = Math.round(sp.baseHp * (1 + (lvl-1)*0.18));
+  return {sp, lvl, max};
+}
+
+function startBattle(){
+  GAME='battle';
+  const {sp,lvl,max}=pickSpirit();
+  B.enemy=sp; B.eLvl=lvl; B.eMax=max; B.eHp=max; B.busy=false; B.fled=false;
+  $('battle').style.display='flex';
+  $('eName').textContent=sp.name; $('eLvl').textContent='Nv '+lvl;
+  $('pLvlB').textContent='Nv '+player.lvl;
+  drawSpirit(sp); drawPlayerBattle();
+  // flash + jingle
+  flash(); Audio8.encounter();
+  refreshBattleBars();
+  showMainMenu();
+  setBText('¡'+sp.name+' apareció! '+sp.desc);
+}
+function flash(){ const f=$('flash'); f.style.transition='none'; f.style.opacity='0.9';
+  requestAnimationFrame(()=>{ f.style.transition='opacity .5s'; f.style.opacity='0'; }); }
+
+function setBText(t){ $('bText').textContent=t; }
+function refreshBattleBars(){
+  $('eHp').style.width=clamp(B.eHp/B.eMax*100,0,100)+'%';
+  $('eHp').style.background = (B.eHp/B.eMax<0.3)?'var(--hp-low)':'var(--hp)';
+  $('pHp').style.width=clamp(player.hp/player.maxHp*100,0,100)+'%';
+  $('pHp').style.background = (player.hp/player.maxHp<0.3)?'var(--hp-low)':'var(--hp)';
+  $('pEm').style.width=clamp(player.em/player.maxEm*100,0,100)+'%';
+  $('pDom').style.width=clamp(B.domain/B.domainMax*100,0,100)+'%';
+  updateHud();
+}
+function gainDomain(n){ B.domain=clamp(B.domain+n,0,B.domainMax); if(B.domain>=B.domainMax) player.domainUnlocked=true; }
+
+function showMainMenu(){
+  $('bMenu').style.display='grid'; $('techMenu').style.display='none';
+  const exB=document.querySelector('[data-act="exorcizar"]');
+  exB.disabled = !(B.eHp/B.eMax <= 0.35);
+  exB.textContent = exB.disabled ? 'Exorcizar (≤35%)' : '★ Exorcizar';
+}
+function showTechMenu(){
+  $('bMenu').style.display='none';
+  const tm=$('techMenu'); tm.style.display='grid'; tm.innerHTML='';
+  TECHS.forEach(tc=>{
+    if(tc.type==='domain' && B.domain<B.domainMax) return; // solo si dominio lleno
+    const b=document.createElement('button'); b.className='mbtn';
+    const can = tc.type==='domain' ? true : player.em>=tc.cost;
+    b.disabled=!can;
+    b.innerHTML = tc.type==='domain'
+      ? '🟣 '+tc.name+'<br><small>DOMINIO LISTO</small>'
+      : tc.name+'<br><small>EM '+tc.cost+'</small>';
+    b.onclick=()=>useTech(tc);
+    tm.appendChild(b);
+  });
+  const back=document.createElement('button'); back.className='mbtn';
+  back.innerHTML='◀ Volver'; back.onclick=showMainMenu; tm.appendChild(back);
+}
+
+function playerDamage(mult, label, isDomain){
+  const variance=0.85+Math.random()*0.3;
+  const crit = !isDomain && chance(0.12);
+  let dmg=Math.round(player.atk*mult*variance*(crit?1.6:1));
+  dmg=Math.max(1,dmg);
+  B.eHp=clamp(B.eHp-dmg,0,B.eMax);
+  gainDomain(isDomain?0:12);
+  if(crit) Audio8.crit(); else Audio8.hit();
+  enemyShake();
+  refreshBattleBars();
+  return {dmg,crit,label};
+}
+
+function doAction(act){
+  if(B.busy || GAME!=='battle') return;
+  if(act==='atacar'){ B.busy=true;
+    const r=playerDamage(1.0,'Atacas');
+    setBText(`Golpe maldito${r.crit?' ¡CRÍTICO!':''}: ${r.dmg} de daño.`);
+    afterPlayer();
+  }
+  else if(act==='tecnica'){ showTechMenu(); }
+  else if(act==='exorcizar'){ attemptExorcise(); }
+  else if(act==='huir'){ B.busy=true;
+    if(chance(0.6)){ setBText('Escapaste entre los pasajes.'); B.fled=true;
+      setTimeout(endBattle, 800);
+    } else { setBText('¡No pudiste huir!'); afterPlayer(); }
+  }
+}
+function useTech(tc){
+  if(B.busy) return;
+  if(tc.type!=='domain' && player.em<tc.cost){ setBText('No tienes energía maldita suficiente.'); return; }
+  B.busy=true; showMainMenu();
+  if(tc.type==='domain'){
+    Audio8.domain(); domainCutscene(()=>{
+      const r=playerDamage(tc.dmg,'Dominio',true);
+      B.domain=0; player.domainUnlocked=false;
+      setBText('Tu dominio envuelve al espíritu: '+r.dmg+' de daño imparable.');
+      afterPlayer();
+    });
+    return;
+  }
+  player.em-=tc.cost;
+  if(tc.type==='heal'){
+    const h=Math.round(player.maxHp*tc.heal);
+    player.hp=clamp(player.hp+h,0,player.maxHp);
+    Audio8.heal(); gainDomain(6);
+    setBText(tc.txt+' Recuperas '+h+' HP.'); refreshBattleBars(); afterPlayer();
+  } else {
+    Audio8.tech();
+    const r=playerDamage(tc.dmg, tc.name);
+    setBText(tc.txt+' '+r.dmg+' de daño'+(r.crit?' ¡CRÍTICO!':'')+'.');
+    afterPlayer();
+  }
+}
+function attemptExorcise(){
+  if(B.busy) return;
+  if(B.eHp/B.eMax>0.35){ setBText('El espíritu aún es muy fuerte. ¡Debilítalo más!'); return; }
+  B.busy=true;
+  const ratio=B.eHp/B.eMax;
+  const p=clamp(0.55 + (0.35-ratio)*1.6, 0.4, 0.97);
+  setBText('Sellas la energía maldita...');
+  setTimeout(()=>{
+    if(chance(p)){
+      Audio8.exorcise();
+      B.eHp=0; refreshBattleBars();
+      winBattle(true);
+    } else {
+      setBText('¡El espíritu se resiste al sello!');
+      setTimeout(()=>enemyTurn(), 700);
+    }
+  }, 600);
+}
+
+function afterPlayer(){
+  refreshBattleBars();
+  if(B.eHp<=0){ winBattle(false); return; }
+  setTimeout(()=>enemyTurn(), 850);
+}
+function enemyTurn(){
+  if(GAME!=='battle') return;
+  const e=B.enemy;
+  const variance=0.85+Math.random()*0.3;
+  const lvlBonus=1+(B.eLvl-1)*0.12;
+  let dmg=Math.round(e.atk*lvlBonus*variance) - Math.floor(player.def/2);
+  dmg=Math.max(1,dmg);
+  player.hp=clamp(player.hp-dmg,0,player.maxHp);
+  gainDomain(8);
+  Audio8.hit(); playerShake();
+  setBText(e.name+' ataca: '+dmg+' de daño.');
+  refreshBattleBars();
+  if(player.hp<=0){ setTimeout(playerDown, 900); return; }
+  B.busy=false; setTimeout(showMainMenu, 200);
+}
+
+function winBattle(exorcised){
+  B.busy=true;
+  const e=B.enemy;
+  let xp=Math.round(e.xp*(1+(B.eLvl-1)*0.2)) * (exorcised?1.5:1);
+  xp=Math.round(xp);
+  if(exorcised){ player.exor++; }
+  const verb = exorcised ? '¡Exorcizaste a' : 'Purificaste a';
+  setBText(`${verb} ${e.name}! +${xp} EXP.`);
+  Audio8.exorcise();
+  // restaurar algo de EM
+  player.em=clamp(player.em+4,0,player.maxEm);
+  setTimeout(()=>{ grantXp(xp, ()=> setTimeout(endBattle, 400)); }, 1100);
+}
+function grantXp(xp, done){
+  player.xp+=xp;
+  let leveled=false;
+  while(player.xp>=player.xpNext){
+    player.xp-=player.xpNext; player.lvl++; leveled=true;
+    player.maxHp+=6; player.hp=player.maxHp;
+    player.maxEm+=3; player.em=player.maxEm;
+    player.atk+=2; player.def+=1;
+    player.xpNext=Math.round(player.xpNext*1.35+6);
+  }
+  updateHud();
+  if(leveled){
+    Audio8.levelup();
+    const g=gradeFor(player.lvl);
+    toast(`¡SUBISTE A NV ${player.lvl}!\n${g}`, ()=>{ done&&done(); });
+  } else { done&&done(); }
+}
+
+function playerDown(){
+  GAME='down'; B.busy=true;
+  Audio8.down();
+  $('battle').style.display='none';
+  // respawn en plaza
+  player.hp=player.maxHp; player.em=player.maxEm; B.domain=0; player.domainUnlocked=false;
+  player.gx=12; player.gy=MAP_H-7; player.px=12; player.py=MAP_H-7; player.moving=false;
+  $('downScreen').style.display='flex';
+}
+function endBattle(){
+  $('battle').style.display='none';
+  GAME='over';
+  B.enemy=null;
+}
+
+// animaciones de sacudida
+let enemyOff={x:0,y:0}, playerOff={x:0,y:0};
+function enemyShake(){ let n=6; const id=setInterval(()=>{ $('bEnemy').style.transform=`translate(${rnd(7)-3}px,${rnd(7)-3}px)`; if(--n<=0){clearInterval(id);$('bEnemy').style.transform='';} },40); }
+function playerShake(){ let n=6; const id=setInterval(()=>{ $('bPlayer').style.transform=`translate(${rnd(7)-3}px,${rnd(7)-3}px)`; if(--n<=0){clearInterval(id);$('bPlayer').style.transform='';} },40); }
+
+function domainCutscene(cb){
+  const f=$('flash');
+  f.style.transition='none'; f.style.background='radial-gradient(circle, #c084fc, #2a0a45)'; f.style.opacity='0';
+  setBText('🟣 EXPANSIÓN DE DOMINIO 🟣');
+  let i=0; const id=setInterval(()=>{
+    f.style.opacity = (i%2? '0.0':'0.85'); i++;
+    if(i>5){ clearInterval(id); f.style.opacity='0'; f.style.background='#fff'; cb&&cb(); }
+  },120);
+}
+
+// ----------------------------- Sprites batalla ---------------------------
+function drawSpirit(sp){
+  const c=$('eSprite'), g=c.getContext('2d'); g.clearRect(0,0,160,160);
+  g.imageSmoothingEnabled=false;
+  const base=sp.col;
+  const t=Date.now()/400;
+  const fx=8+Math.sin(t)*3;
+  function blob(cx,cy,r,col){ g.fillStyle=col; g.beginPath(); g.arc(cx,cy,r,0,7); g.fill(); }
+  // aura
+  g.fillStyle='rgba(139,92,246,.25)'; g.beginPath(); g.arc(80,90,52,0,7); g.fill();
+  if(sp.shape==='dog'){
+    blob(80,100,30,base); g.fillRect(58,70,44,30);
+    blob(58,70,12,base); blob(102,70,12,base); // orejas
+    g.fillStyle='#111'; blob(70,88,4,'#ff3b3b'); blob(92,88,4,'#ff3b3b');
+    g.fillStyle=shade(base,-0.3); g.fillRect(74,98,12,6);
+  } else if(sp.shape==='cat'){
+    blob(80,95,28,base);
+    g.fillStyle=base; g.beginPath(); g.moveTo(58,72); g.lineTo(66,50); g.lineTo(74,72); g.fill();
+    g.beginPath(); g.moveTo(86,72); g.lineTo(94,50); g.lineTo(102,72); g.fill();
+    blob(70,92,5,'#ffd23f'); blob(92,92,5,'#ffd23f'); g.fillStyle='#111'; g.fillRect(69,90,3,6); g.fillRect(91,90,3,6);
+  } else if(sp.shape==='tentacle'){
+    blob(80,80,30,base);
+    for(let i=0;i<5;i++){ const a=i/5*Math.PI*2+t*0.3; g.strokeStyle=base; g.lineWidth=8; g.beginPath();
+      g.moveTo(80,100); g.quadraticCurveTo(80+Math.cos(a)*30, 130, 80+Math.cos(a)*46, 140+Math.sin(a)*6); g.stroke(); }
+    g.fillStyle='#9affd2'; blob(70,76,5,'#9affd2'); blob(92,76,5,'#9affd2');
+  } else if(sp.shape==='tall'){
+    g.fillStyle=base; g.fillRect(62,40,36,90);
+    g.fillStyle=shade(base,-0.3); g.fillRect(62,40,36,12);
+    blob(72,70,5,'#ffcf57'); blob(88,70,5,'#ffcf57');
+    g.fillStyle='#0008'; g.fillRect(70,90,20,4);
+  } else if(sp.shape==='boss'){
+    g.fillStyle='rgba(192,132,252,.35)'; blob(80,84,60,'rgba(192,132,252,.35)');
+    blob(80,90,40,base); blob(80,55,22,base);
+    g.fillStyle='#ff3b6b'; blob(70,52,6,'#ff3b6b'); blob(90,52,6,'#ff3b6b'); blob(80,60,6,'#ff3b6b');
+    for(let i=0;i<6;i++){ const a=i/6*Math.PI*2; g.fillStyle=shade(base,-0.2);
+      g.beginPath(); g.moveTo(80,90); g.lineTo(80+Math.cos(a)*55, 90+Math.sin(a)*55); g.lineTo(80+Math.cos(a+0.3)*35,90+Math.sin(a+0.3)*35); g.fill(); }
+    g.fillStyle='#0a0a0a'; g.fillRect(64,98,32,8);
+  } else { // blob
+    blob(80,90,32,base); blob(64,76,14,base); blob(96,76,14,base);
+    g.fillStyle='#fff'; blob(70,84,7,'#fff'); blob(92,84,7,'#fff');
+    g.fillStyle='#1a1226'; blob(72,86,3,'#1a1226'); blob(94,86,3,'#1a1226');
+    g.fillStyle='#1a1226'; g.fillRect(70,100,22,4);
+  }
+  // gota inferior con leve flote
+  g.fillStyle='rgba(0,0,0,.15)'; g.beginPath(); g.ellipse(80,140,30,8,0,0,7); g.fill();
+}
+function drawPlayerBattle(){
+  const c=$('pSprite'), g=c.getContext('2d'); g.clearRect(0,0,120,120); g.imageSmoothingEnabled=false;
+  // de espaldas, mirando al enemigo
+  g.fillStyle='rgba(0,0,0,.2)'; g.beginPath(); g.ellipse(60,108,26,8,0,0,7); g.fill();
+  g.fillStyle='#241a33'; g.fillRect(40,52,40,46);          // torso
+  g.fillStyle='#3a2c52'; g.fillRect(40,52,40,8);
+  g.fillStyle='#1c1428'; g.fillRect(30,56,12,38); g.fillRect(78,56,12,38); // brazos
+  g.fillStyle='#e8b894'; g.fillRect(46,28,28,26);          // nuca/cabeza
+  g.fillStyle='#15101f'; g.fillRect(42,22,36,22);          // pelo
+  // aura
+  g.strokeStyle='rgba(66,192,232,.5)'; g.lineWidth=3; g.beginPath(); g.arc(60,70,40,0,7); g.stroke();
+}
+
+// ----------------------------- Toast -------------------------------------
+function toast(msg, cb){
+  const el=$('toast'); el.textContent=msg; el.style.display='block';
+  el.style.whiteSpace='pre-line';
+  setTimeout(()=>{ el.style.display='none'; cb&&cb(); }, 1500);
+}
+
+// ----------------------------- HUD update --------------------------------
+function updateHud(){
+  $('lvl').textContent=player.lvl;
+  $('grade').textContent=gradeFor(player.lvl);
+  $('exorCount').textContent=player.exor;
+  $('emTxt').textContent=Math.round(player.em)+'/'+player.maxEm;
+  $('hpbarHud').style.width=clamp(player.hp/player.maxHp*100,0,100)+'%';
+  $('hpbarHud').style.background=(player.hp/player.maxHp<0.3)?'var(--hp-low)':'var(--hp)';
+  $('embarHud').style.width=clamp(player.em/player.maxEm*100,0,100)+'%';
+}
+
+// ----------------------------- Input -------------------------------------
+const keys={};
+window.addEventListener('keydown', e=>{
+  Audio8.ensure();
+  const k=e.key.toLowerCase();
+  if(['arrowup','arrowdown','arrowleft','arrowright',' '].includes(k)) e.preventDefault();
+  if(dialog.active){ if(k===' '||k==='enter'||k==='arrowdown') advanceDialog(); return; }
+  if(GAME!=='over') return;
+  if(k==='arrowup'||k==='w') tryMove(0,-1,'up');
+  else if(k==='arrowdown'||k==='s') tryMove(0,1,'down');
+  else if(k==='arrowleft'||k==='a') tryMove(-1,0,'left');
+  else if(k==='arrowright'||k==='d') tryMove(1,0,'right');
+});
+
+// hold-to-move
+let held=null;
+function bindHold(el, dx,dy,dir){
+  const start=e=>{ e.preventDefault(); Audio8.ensure(); held={dx,dy,dir}; tryMove(dx,dy,dir); };
+  const stop=()=>{ held=null; };
+  el.addEventListener('touchstart',start,{passive:false});
+  el.addEventListener('mousedown',start);
+  el.addEventListener('touchend',stop); el.addEventListener('mouseup',stop); el.addEventListener('mouseleave',stop);
+}
+bindHold($('du'),0,-1,'up'); bindHold($('dd'),0,1,'down');
+bindHold($('dl'),-1,0,'left'); bindHold($('dr'),1,0,'right');
+$('aBtn').addEventListener('click', ()=>{ if(dialog.active) advanceDialog(); });
+$('dialog').addEventListener('click', ()=>{ if(dialog.active) advanceDialog(); });
+cv.addEventListener('click', ()=>{ Audio8.ensure(); if(dialog.active) advanceDialog(); });
+
+// batalla: botones
+document.querySelectorAll('#bMenu .mbtn').forEach(b=>{
+  b.addEventListener('click', ()=>{ Audio8.ensure(); doAction(b.dataset.act); });
+});
+
+// mute
+$('muteBtn').addEventListener('click', ()=>{ const m=Audio8.toggle(); $('muteBtn').textContent = m? '🔇 Audio':'🔊 Audio'; });
+
+// ----------------------------- Loop principal ----------------------------
+let last=performance.now();
+function tick(now){
+  const dt=now-last; last=now;
+  updateMove(dt);
+  // hold continuo
+  if(held && !player.moving && GAME==='over' && !dialog.active){ tryMove(held.dx,held.dy,held.dir); }
+  requestAnimationFrame(tick);
+}
+
+// ----------------------------- Inicio ------------------------------------
+function startGame(){
+  const spawn=buildMap();
+  player.gx=spawn.sx; player.gy=spawn.sy; player.px=spawn.sx; player.py=spawn.sy;
+  resize();
+  $('introScreen').style.display='none';
+  // controles tactiles si es touch
+  if(('ontouchstart' in window) || navigator.maxTouchPoints>0){
+    $('touch').style.display='block'; $('aBtn').style.display='flex';
+  }
+  GAME='over';
+  updateHud();
+  Audio8.ensure();
+  say([
+    'Niebla maldita cubre Valparaíso...',
+    'Eres hechicer@ del Grado 4. Los espíritus brotan en las zonas moradas (energía maldita).',
+    'Camina sobre ellas para provocar encuentros y exorciza todo lo que puedas.',
+    '¡A subir de grado, porteñ@!'
+  ]);
+}
+
+$('startBtn').addEventListener('click', ()=>{ Audio8.ensure(); startGame(); });
+$('reviveBtn').addEventListener('click', ()=>{ $('downScreen').style.display='none'; GAME='over'; updateHud(); });
+
+// arranque de bucles
+resize();
+buildMap();           // mapa de fondo visible tras la intro
+player.gx=12; player.gy=MAP_H-7; player.px=12; player.py=MAP_H-7;
+camX=(player.px-player.py)*(TW/2); camY=(player.px+player.py)*(TH/2);
+requestAnimationFrame(render);
+requestAnimationFrame(tick);
+</script>
+</body>
+</html>
